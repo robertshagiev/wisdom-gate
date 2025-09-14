@@ -41,8 +41,6 @@ func PoWChallengeMiddleware(redisClient redis.ClientInterface, cfg *config.Confi
 				return fmt.Errorf("failed to store challenge: %w", err)
 			}
 
-			ctx = context.WithValue(ctx, ChallengeKey, header)
-
 			challengeMsg := &protocolUC.Message{
 				Command: "CHL",
 				Body:    challengeStr,
