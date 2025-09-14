@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 	"wisdom-gate/internal/config"
 )
 
-func PoWChallengeMiddleware(redisClient *redis.Client, cfg *config.Config) Middleware {
+func PoWChallengeMiddleware(redisClient redis.ClientInterface, cfg *config.Config) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx context.Context, conn net.Conn, clientAddr string, msg *protocolUC.Message) error {
 			if msg.Command != "REQ" {
@@ -56,7 +57,7 @@ func PoWChallengeMiddleware(redisClient *redis.Client, cfg *config.Config) Middl
 	}
 }
 
-func PoWVerificationMiddleware(redisClient *redis.Client, powVerifier *powUC.Verifier, cfg *config.Config) Middleware {
+func PoWVerificationMiddleware(redisClient redis.ClientInterface, powVerifier powUC.VerifierInterface, cfg *config.Config, logger *slog.Logger) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx context.Context, conn net.Conn, clientAddr string, msg *protocolUC.Message) error {
 			if msg.Command != "RES" {
@@ -105,6 +106,7 @@ func PoWVerificationMiddleware(redisClient *redis.Client, powVerifier *powUC.Ver
 			}
 
 			if err := redisClient.DeleteChallenge(ctx, token); err != nil {
+				logger.Warn("Failed to delete challenge from Redis", "token", token, "error", err)
 			}
 
 			ctx = context.WithValue(ctx, VerifiedKey, true)

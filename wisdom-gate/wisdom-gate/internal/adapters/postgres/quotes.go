@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"wisdom-gate/internal/application/quotes/dto"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type QuotesRepository struct {

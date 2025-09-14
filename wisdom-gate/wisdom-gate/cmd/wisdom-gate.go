@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"log"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"wisdom-gate/internal/adapters/postgres"
 	"wisdom-gate/internal/config"
@@ -39,22 +39,44 @@ func main() {
 	}
 	defer repo.Close()
 
-	logger.Info("repo Pool has been initialized")
+	logger.Info("Database pool has been initialized")
 
+	// Выполнение миграций
 	connForMigrations := stdlib.OpenDBFromPool(repo)
 	if err = goose.Up(connForMigrations, cfg.Repo.MigrationPath); err != nil {
-		log.Fatalf("failed to run migrations: %s", err)
+		logger.Error("Failed to run migrations", "error", err)
+		os.Exit(1)
 	}
 
+	// Создание сервера
 	server, err := tcp.NewServer(cfg, logger, repo)
 	if err != nil {
-		logger.Error("Failed to create wisdom-gate", "error", err)
+		logger.Error("Failed to create server", "error", err)
 		os.Exit(1)
 	}
 
-	logger.Info("Starting wisdom-gate...")
-	if err := server.Start(ctx); err != nil {
-		logger.Error("Server error", "error", err)
-		os.Exit(1)
+	serverErr := make(chan error, 1)
+	go func() {
+		logger.Info("Starting wisdom-gate server...")
+		serverErr <- server.Start(ctx)
+	}()
+
+	select {
+	case <-ctx.Done():
+		logger.Info("Shutdown signal received, starting graceful shutdown...")
+
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			logger.Error("Graceful shutdown failed", "error", err)
+		}
+		logger.Info("Graceful shutdown completed")
+
+	case err := <-serverErr:
+		if err != nil {
+			logger.Error("Server error", "error", err)
+			os.Exit(1)
+		}
 	}
 }

@@ -6,6 +6,6 @@ import (
 	"wisdom-gate/internal/application/quotes/dto"
 )
 
-type repo interface {
+type repoInterface interface {
 	GetRandomQuote(ctx context.Context) (dto.Quote, error)
 }

@@ -21,11 +21,13 @@ import (
 )
 
 type Server struct {
-	config   *config.Config
-	logger   *slog.Logger
-	handler  *Handler
-	listener net.Listener
-	wg       sync.WaitGroup
+	config      *config.Config
+	logger      *slog.Logger
+	handler     *Handler
+	listener    net.Listener
+	wg          sync.WaitGroup
+	shutdownCh  chan struct{}
+	redisClient redis.ClientInterface
 }
 
 func NewServer(cfg *config.Config, logger *slog.Logger, db *pgxpool.Pool) (*Server, error) {
@@ -47,7 +49,7 @@ func NewServer(cfg *config.Config, logger *slog.Logger, db *pgxpool.Pool) (*Serv
 		middleware.LoggingMiddleware(),
 		middleware.RateLimitMiddleware(middleware.NewRateLimiter(cfg.Server.RateLimit, cfg.Server.RateWindow)),
 		middleware.PoWChallengeMiddleware(redisClient, cfg),
-		middleware.PoWVerificationMiddleware(redisClient, powVerifier, cfg),
+		middleware.PoWVerificationMiddleware(redisClient, powVerifier, cfg, logger),
 		middleware.ErrorHandlerMiddleware(),
 	)
 
@@ -55,9 +57,11 @@ func NewServer(cfg *config.Config, logger *slog.Logger, db *pgxpool.Pool) (*Serv
 	handler := NewHandler(api, logger)
 
 	return &Server{
-		config:  cfg,
-		logger:  logger,
-		handler: handler,
+		config:      cfg,
+		logger:      logger,
+		handler:     handler,
+		shutdownCh:  make(chan struct{}),
+		redisClient: redisClient,
 	}, nil
 }
 
@@ -73,15 +77,47 @@ func (s *Server) Start(ctx context.Context) error {
 
 	go s.acceptConnections(ctx)
 
-	<-ctx.Done()
-	s.logger.Info("Shutting down TCP wisdom-gate...")
+	select {
+	case <-ctx.Done():
+		s.logger.Info("Shutdown signal received")
+		return nil
+	case <-s.shutdownCh:
+		s.logger.Info("Shutdown requested")
+		return nil
+	}
+}
 
-	if err := s.listener.Close(); err != nil {
-		s.logger.Error("Failed to close listener", "error", err)
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.logger.Info("Starting graceful shutdown...")
+
+	if s.listener != nil {
+		if err := s.listener.Close(); err != nil {
+			s.logger.Error("Failed to close listener", "error", err)
+		}
 	}
 
-	s.wg.Wait()
-	s.logger.Info("TCP wisdom-gate stopped")
+	close(s.shutdownCh)
+
+	done := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		s.logger.Info("All connections closed")
+	case <-ctx.Done():
+		s.logger.Warn("Shutdown timeout exceeded, forcing close")
+	}
+
+	if s.redisClient != nil {
+		if err := s.redisClient.Close(); err != nil {
+			s.logger.Error("Failed to close Redis client", "error", err)
+		}
+	}
+
+	s.logger.Info("Graceful shutdown completed")
 	return nil
 }
 
@@ -90,11 +126,15 @@ func (s *Server) acceptConnections(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-s.shutdownCh:
+			return
 		default:
 			conn, err := s.listener.Accept()
 			if err != nil {
 				select {
 				case <-ctx.Done():
+					return
+				case <-s.shutdownCh:
 					return
 				default:
 					s.logger.Error("Failed to accept connection", "error", err)
@@ -110,7 +150,7 @@ func (s *Server) acceptConnections(ctx context.Context) {
 
 func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	defer func() {
-		conn.Close()
+		_ = conn.Close()
 		s.wg.Done()
 	}()
 

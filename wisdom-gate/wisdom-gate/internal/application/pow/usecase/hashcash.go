@@ -11,7 +11,7 @@ import (
 
 type Verifier struct{}
 
-func NewVerifier() *Verifier {
+func NewVerifier() VerifierInterface {
 	return &Verifier{}
 }
 
@@ -23,11 +23,22 @@ func (v *Verifier) VerifySolution(header string, difficulty int) (bool, error) {
 	return strings.HasPrefix(hashStr, requiredZeros), nil
 }
 
-func GenerateNonce() (string, error) {
+type NonceGenerator struct{}
+
+func NewNonceGenerator() NonceGeneratorInterface {
+	return &NonceGenerator{}
+}
+
+func (ng *NonceGenerator) GenerateNonce() (string, error) {
 	nonceBytes := make([]byte, 16)
 	if _, err := rand.Read(nonceBytes); err != nil {
 		return "", fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
 	return base64.StdEncoding.EncodeToString(nonceBytes), nil
+}
+
+func GenerateNonce() (string, error) {
+	ng := NewNonceGenerator()
+	return ng.GenerateNonce()
 }

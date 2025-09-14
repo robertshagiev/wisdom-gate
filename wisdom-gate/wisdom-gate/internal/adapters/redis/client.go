@@ -12,7 +12,7 @@ type Client struct {
 	rdb *redis.Client
 }
 
-func NewClient(addr string) (*Client, error) {
+func NewClient(addr string) (ClientInterface, error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: addr,
 	})
@@ -49,4 +49,47 @@ func (c *Client) DeleteChallenge(ctx context.Context, token string) error {
 
 func (c *Client) Close() error {
 	return c.rdb.Close()
+}
+
+type MockRedisClient struct {
+	challenges map[string]string
+	spent      map[string]bool
+	closeErr   error
+}
+
+func NewMockRedisClient() ClientInterface {
+	return &MockRedisClient{
+		challenges: make(map[string]string),
+		spent:      make(map[string]bool),
+	}
+}
+
+func (m *MockRedisClient) StoreChallenge(ctx context.Context, token string, challenge string, ttl time.Duration) error {
+	m.challenges[token] = challenge
+	return nil
+}
+
+func (m *MockRedisClient) GetChallenge(ctx context.Context, token string) (string, error) {
+	challenge, exists := m.challenges[token]
+	if !exists {
+		return "", context.DeadlineExceeded
+	}
+	return challenge, nil
+}
+
+func (m *MockRedisClient) MarkChallengeSpent(ctx context.Context, token string, ttl time.Duration) (bool, error) {
+	if m.spent[token] {
+		return false, nil // Уже потрачен
+	}
+	m.spent[token] = true
+	return true, nil
+}
+
+func (m *MockRedisClient) DeleteChallenge(ctx context.Context, token string) error {
+	delete(m.challenges, token)
+	return nil
+}
+
+func (m *MockRedisClient) Close() error {
+	return m.closeErr
 }

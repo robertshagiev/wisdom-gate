@@ -7,10 +7,10 @@ import (
 )
 
 type QuotesUseCase struct {
-	repo repo
+	repo repoInterface
 }
 
-func NewQuotesUseCase(repo repo) *QuotesUseCase {
+func NewQuotesUseCase(repo repoInterface) *QuotesUseCase {
 
 	return &QuotesUseCase{repo: repo}
 }
