@@ -24,11 +24,18 @@ REDIS_DB=0
 CHALLENGE_TTL=20s
 SPENT_TTL=2m
 
-# Proof of Work
-POW_DIFFICULTY=20
+```
+wisdom-gate/
+├── cmd/wisdom-gate.go          # Точка входа
+├── internal/
+│   ├── adapters/               # PostgreSQL, Redis
+│   ├── application/            # PoW, цитаты, протокол
+│   ├── config/                 # Конфигурация
+│   └── delivery/tcp/           # TCP сервер, middleware
+├── migrations/                 # SQL миграции
+└── docker/                     # Docker файлы
 
-# Quotes
-QUOTES_SOURCE=internal
+client/                         # Тестовый клиент
 ```
 
 ## Инструкции по запуску
@@ -93,3 +100,17 @@ cd /path/to/wisdom-gate/client
 ./client 127.0.0.1:8080
 ```
 
+## Производительность
+
+- Сложность 4: 10-50ms время решения
+- Сложность 20: 50-200ms время решения
+- Максимум соединений: 100
+- Пропускная способность: 100-500 запросов/минута
+
+## Безопасность
+
+- DDoS защита через Proof of Work
+- Anti-replay через Redis
+- Time-based expiration (20 секунд)
+- Subject binding к IP адресу
+- Connection limits и timeouts
