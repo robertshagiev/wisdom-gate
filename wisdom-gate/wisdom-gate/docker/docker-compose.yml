@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: wisdom_gate
+      POSTGRES_USER: wisdom_user
+      POSTGRES_PASSWORD: wisdom_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-wisdom-gate --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - REDIS_ADDR=redis:6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=wisdom_gate
+      - POSTGRES_USER=wisdom_user
+      - POSTGRES_PASSWORD=wisdom_pass
+      - POW_DIFFICULTY=4
+      - CHALLENGE_TTL=20s
+      - SPENT_TTL=2m
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ../wisdomctl\ \(client\)
+      dockerfile: Dockerfile
+    environment:
+      - SERVER_ADDR=wisdom-gate:8080
+    depends_on:
+      - server
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:
