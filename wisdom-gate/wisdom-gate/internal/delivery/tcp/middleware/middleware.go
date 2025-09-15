@@ -16,7 +16,6 @@ type ContextKey string
 
 const (
 	ClientAddrKey ContextKey = "client_addr"
-	ChallengeKey  ContextKey = "challenge"
 	VerifiedKey   ContextKey = "verified"
 )
 

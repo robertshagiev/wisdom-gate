@@ -13,6 +13,7 @@ import (
 
 	"wisdom-gate/internal/adapters/redis"
 	powUC "wisdom-gate/internal/application/pow/usecase"
+	"wisdom-gate/internal/application/protocol/consts"
 	"wisdom-gate/internal/application/protocol/usecase"
 	"wisdom-gate/internal/config"
 )
@@ -40,7 +41,7 @@ func TestPoWChallengeMiddleware(t *testing.T) {
 	conn := &mockConn{}
 
 	reqMsg := &usecase.Message{
-		Command: "REQ",
+		Command: consts.CmdREQ,
 		Body:    "",
 	}
 

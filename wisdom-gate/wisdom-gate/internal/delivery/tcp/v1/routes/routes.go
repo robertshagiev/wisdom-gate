@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"wisdom-gate/internal/application/protocol/consts"
 	protocolUC "wisdom-gate/internal/application/protocol/usecase"
 	"wisdom-gate/internal/delivery/tcp/middleware"
 	"wisdom-gate/internal/delivery/tcp/v1/handlers"
@@ -21,15 +22,15 @@ func Route(
 	var finalHandler middleware.Handler
 
 	switch msg.Command {
-	case "REQ":
+	case consts.CmdREQ:
 		// REQ обрабатывается в middleware (PoWChallengeMiddleware)
 		// Создаем пустой handler для middleware цепочки
 		finalHandler = func(ctx context.Context, conn net.Conn, clientAddr string, msg *protocolUC.Message) error {
 			return nil
 		}
-	case "RES":
+	case consts.CmdRES:
 		finalHandler = handlers.QuotesHandler.HandleQuoteRequest
-	case "DISC":
+	case consts.CmdDISC:
 		finalHandler = handlers.ConnectionHandler.HandleDisconnect
 	default:
 		return fmt.Errorf("unknown client command: %s", msg.Command)

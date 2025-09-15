@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"wisdom-gate/internal/application/protocol/consts"
 	protocolUC "wisdom-gate/internal/application/protocol/usecase"
 	quotesUC "wisdom-gate/internal/application/quotes/usecase"
 	"wisdom-gate/internal/delivery/tcp/middleware"
@@ -34,7 +35,7 @@ func (h *QuotesHandler) HandleQuoteRequest(ctx context.Context, conn net.Conn, c
 	quoteText := fmt.Sprintf("%s — %s", quote.Text, quote.Author)
 
 	quoteMsg := &protocolUC.Message{
-		Command: "QOT",
+		Command: consts.CmdQOT,
 		Body:    quoteText,
 	}
 

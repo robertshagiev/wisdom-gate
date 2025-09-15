@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"wisdom-gate/internal/application/protocol/consts"
 	protocolUC "wisdom-gate/internal/application/protocol/usecase"
 )
 
@@ -14,7 +15,7 @@ func ErrorHandlerMiddleware() Middleware {
 			err := next(ctx, conn, clientAddr, msg)
 			if err != nil {
 				errorMsg := &protocolUC.Message{
-					Command: "ERR",
+					Command: consts.CmdERR,
 					Body:    fmt.Sprintf("ERROR: %s", err.Error()),
 				}
 

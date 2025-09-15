@@ -9,6 +9,7 @@ import (
 
 	"wisdom-gate/internal/adapters/redis"
 	powUC "wisdom-gate/internal/application/pow/usecase"
+	"wisdom-gate/internal/application/protocol/consts"
 	protocolUC "wisdom-gate/internal/application/protocol/usecase"
 	"wisdom-gate/internal/config"
 )
@@ -16,7 +17,7 @@ import (
 func PoWChallengeMiddleware(redisClient redis.ClientInterface, cfg *config.Config) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx context.Context, conn net.Conn, clientAddr string, msg *protocolUC.Message) error {
-			if msg.Command != "REQ" {
+			if msg.Command != consts.CmdREQ {
 				return next(ctx, conn, clientAddr, msg)
 			}
 
@@ -31,7 +32,7 @@ func PoWChallengeMiddleware(redisClient redis.ClientInterface, cfg *config.Confi
 				Difficulty: cfg.POW.Difficulty,
 				ExpiresAt:  expiresAt,
 				Subject:    clientAddr,
-				Algorithm:  "sha-256",
+				Algorithm:  consts.AlgorithmSha256,
 				Nonce:      nonce,
 			}
 
@@ -42,7 +43,7 @@ func PoWChallengeMiddleware(redisClient redis.ClientInterface, cfg *config.Confi
 			}
 
 			challengeMsg := &protocolUC.Message{
-				Command: "CHL",
+				Command: consts.CmdCHL,
 				Body:    challengeStr,
 			}
 
@@ -58,7 +59,7 @@ func PoWChallengeMiddleware(redisClient redis.ClientInterface, cfg *config.Confi
 func PoWVerificationMiddleware(redisClient redis.ClientInterface, powVerifier powUC.VerifierInterface, cfg *config.Config, logger *slog.Logger) Middleware {
 	return func(next Handler) Handler {
 		return func(ctx context.Context, conn net.Conn, clientAddr string, msg *protocolUC.Message) error {
-			if msg.Command != "RES" {
+			if msg.Command != consts.CmdREQ {
 				return next(ctx, conn, clientAddr, msg)
 			}
 
